@@ -3,15 +3,23 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <errno.h>
 
 size_t readn(int fd, void* buffer, size_t size) {
 	char* buffer_ptr = buffer;
 	size_t len = size;
 	while(len > 0) {
-		int res = read(fd, buffer_ptr, len);
-		if(res < 0) 
+		int ret = read(fd, buffer_ptr, len);
+		if(ret < 0) {
+            if(EINTR == errno) continue;
+           else return -1;
+        }
+        else if(ret == 0) break;
+        len -= ret;
+        buffer_ptr += ret;
 	}
-}
+    return (size - len);
+}   
 
 void ReadData(int sockfd) {
     ssize_t n;
@@ -22,7 +30,7 @@ void ReadData(int sockfd) {
         if((n = readn(sockfd, buf, 1024)) == 0) return;
         time++;
         fprintf(stdout, "1K read for %d\n", time);
-        usleep(1000);
+        usleep(10000);
     }
 }
 
