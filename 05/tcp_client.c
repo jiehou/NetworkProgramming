@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <errno.h>
 
-const int kMessageSize = 102400000;
+const int kMessageSize = 10240;
 
 void send_data(int sockfd) {
     char* query;

@@ -21,7 +21,7 @@ size_t readn(int fd, void* buffer, size_t size) {
     return (size - len);
 }   
 
-void ReadData(int sockfd) {
+void read_data(int sockfd) {
     ssize_t n;
     char buf[1024];
     int time = 0;
@@ -30,7 +30,7 @@ void ReadData(int sockfd) {
         if((n = readn(sockfd, buf, 1024)) == 0) return;
         time++;
         fprintf(stdout, "1K read for %d\n", time);
-        usleep(10000);
+        usleep(2 * 100000);
     }
 }
 
@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
     for(;;) {
         clilen = sizeof(cliaddr);
         connfd = accept(listenfd, (struct sockaddr_in*)&cliaddr, &clilen);
-        ReadData(connfd);
+        read_data(connfd);
         close(connfd);
     }
 }

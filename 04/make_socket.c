@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-int makeSocket(uint16_t port) {
+int make_socket(uint16_t port) {
     int sock;
     // create IPv4 socket
     sock = socket(PF_INET, SOCK_STREAM, 0);
@@ -25,6 +25,6 @@ int makeSocket(uint16_t port) {
 }
 
 int main(int argc, char **argv) {
-    int sockfd = makeSocket(54321);
+    int sockfd = make_socket(54321);
     printf("#[I] sockfd: %d\n", sockfd);
 }
