@@ -8,7 +8,7 @@
 #include <sys/un.h> /* domain packets */
 
 const int kBufferSize = 4096;
-const int kMaxLine    = 4096*2;
+const int kMaxLine    = 4096;
 
 int main(int argc, char** argv) {
     if(argc != 2) error(1, 0, "usage: stream_server <local_path>");
@@ -57,4 +57,5 @@ int main(int argc, char** argv) {
     }
     close(listenfd);
     close(connfd);
+    exit(0);
 } 

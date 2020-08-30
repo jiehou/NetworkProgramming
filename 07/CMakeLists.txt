@@ -1,1 +1,2 @@
 add_executable(stream_server stream_server.c)
+add_executable(stream_client stream_client.c)
