@@ -1,3 +1,5 @@
 add_executable(forkex forkex.c)
 add_executable(forkex1 forkex1.c)
 add_executable(daemonex daemonex.c)
+add_executable(waitex waitex.c)
+add_executable(waitex1 waitex1.c)
