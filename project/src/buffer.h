@@ -5,8 +5,8 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <string>
 #include <string.h>
+#include <string>
 using std::vector;
 
 class Buffer {
@@ -25,10 +25,16 @@ public:
     void Write(const char* str, size_t len); // append a str of size len to buf_
     void Write(const std::string& str);
     void Write(const Buffer& buf);
+
+    // Read and write operations related to socket/file descriptors
+    ssize_t ReadFd(int fd, int* retErrno);
+    ssize_t WriteFd(int fd, int* retErrno);
+
 private:
     void EnsureWriteable_(size_t len);
     void MakeSpace_(size_t len);
     void ClearAll_();
+    
 private:
     vector<char> buf_;
     size_t readPos_;

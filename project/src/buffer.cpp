@@ -7,7 +7,7 @@ size_t Buffer::ReadableBytes() const {
 }
 
 size_t Buffer::WriteableBytes() const {
-    assert(buf_.size() > writePos_);
+    assert(buf_.size() >= writePos_);
     return buf_.size() - writePos_;
 }
 
@@ -54,7 +54,6 @@ std::string Buffer::ReadAllToStr() {
 
 void Buffer::ClearAll_() {
     bzero(&buf_[0], buf_.size());
-    //memset(&buf_[0], 0, buf_.size());
     readPos_ = 0;
     writePos_ = 0;
 }
@@ -75,4 +74,38 @@ void Buffer::MakeSpace_(size_t len) {
 void Buffer::EnsureWriteable_(size_t len) {
     if(WriteableBytes() < len) MakeSpace_(len);
     assert(WriteableBytes() >= len);
+}
+
+ssize_t Buffer::ReadFd(int fd, int* retErrno) {
+    char lbuf[65535]; // local buffer
+    struct iovec iov[2];
+    size_t writeable = WriteableBytes();
+    // readv use case
+    iov[0].iov_base = GetWriteAddr();
+    iov[0].iov_len = writeable;
+    iov[1].iov_base = lbuf;
+    iov[1].iov_len = sizeof(lbuf);
+    // read contents from fd into two vectored buffers
+    ssize_t len = readv(fd, iov, 2);
+    if(len < 0) *retErrno = errno;
+    else if(len < writeable) {
+        writePos_ += len;
+    }
+    else {
+        // append contents of lbuf into buf_
+        writePos_ = buf_.size();
+        Write(lbuf, len - writeable); 
+    }
+    return len;
+}
+
+ssize_t Buffer::WriteFd(int fd, int* retErrno) {
+    size_t readable = ReadableBytes();
+    ssize_t len = write(fd, GetReadAddr(), readable);
+    if(len < 0) {
+        *retErrno = errno;
+        return len;
+    }
+    readPos_ += len;
+    return len;
 }
