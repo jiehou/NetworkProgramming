@@ -1,0 +1,1 @@
+add_executable(pipeex1 pipeex1.c)

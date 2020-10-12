@@ -1,0 +1,1 @@
+add_executable(sigex1 sigex1.c)
