@@ -11,9 +11,42 @@ Server::Server
     // configure listenEvent_ and connEvent_
     listenEvent_ = EPOLLRDHUP | EPOLLET;
     connEvent_ = EPOLLONESHOT | EPOLLRDHUP | EPOLLET;
+    if(!InitSocket_()) isClose_ = true; // true: close, false: run server
 }
 
 //@TODO: Start
+void Server::Start() {
+    if(isClose_) return;
+    int timeMs = -1;
+    LOG_INFO("Server starts running");
+    while(!isClose_) {
+        if(timeoutMs_ > 0) timeMs = timer_->GetNextTick();
+        int eventCount = epoller_->Wait(timeMs);
+        cout << "[D] eventCount: " << eventCount << endl;
+        for(int i = 0; i < eventCount; ++i) {
+            int fd = epoller_->GetEventFd(i);
+            uint32_t tmpEvents = epoller_->GetEvents(i);
+            if(fd == listenFd_) {
+                cout << "[D] ManageListen_\n";
+                ManageListen_();
+                 cout << "[D] ManageListen_1\n";
+            }
+            else if(tmpEvents & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+                assert(connLookup_.count(fd) > 0);
+                CloseConnection_(&connLookup_[fd]);
+            }
+            else if(tmpEvents & EPOLLIN) {
+                assert(connLookup_.count(fd) > 0);
+                ManageRead_(&connLookup_[fd]);
+            }
+            else if(tmpEvents & EPOLLOUT) {
+                assert(connLookup_.count(fd) > 0);
+                ManageWrite_(&connLookup_[fd]);
+            }
+            else LOG_ERROR("Unexpected event");
+        }
+    }
+}
 
 /**
  * 1) create socket
@@ -60,13 +93,20 @@ bool Server::InitSocket_() {
         LOG_ERROR("Bind error");
         return false;
     }
-    if(!epoller_->AddFd(listenFd_, listenFd_ | EPOLLIN)) {
+    ret = listen(listenFd_, 1024);
+    if(ret < 0) {
+        close(listenFd_);
+        LOG_ERROR("Listen error");
+        return false;
+    }
+    if(!epoller_->AddFd(listenFd_, listenEvent_ | EPOLLIN)) {
         close(listenFd_);
         LOG_ERROR("Epoller add listenFd error");
         return false;
     }
     SetFdNonblock(listenFd_);
-    LOG_INFO("Server port {} listens", port_);
+    LOG_INFO("Server listens on port {}", port_);
+    return true;
 }
 
 void Server::ManageListen_() {
@@ -88,6 +128,7 @@ void Server::ManageListen_() {
 void Server::AddConnection_(int fd, const sockaddr_in& addr) {
     assert(fd >= 0);
     connLookup_[fd].Init(fd, addr);
+    numConnections_++; // increase numConnections_
     if(timeoutMs_ > 0)
         timer_->Add(fd, timeoutMs_, std::bind(&Server::CloseConnection_, this, &connLookup_[fd]));
     epoller_->AddFd(fd, EPOLLIN || connEvent_);
@@ -95,4 +136,62 @@ void Server::AddConnection_(int fd, const sockaddr_in& addr) {
     LOG_INFO("Connection with fd: {} is established", fd);
 }
 
-void Server
+void Server::ExtendTimer_(Connection* conn) {
+    if(!conn) return;
+    if(timeoutMs_ > 0)
+        timer_->Update(conn->GetFd(), timeoutMs_);
+}
+
+void Server::ManageRead_(Connection* conn) {
+    if(!conn) return;
+    ExtendTimer_(conn);
+    threadpool_->AddTask(std::bind(&Server::OnRead_, this, conn));
+}
+
+void Server::OnRead_(Connection* conn) {
+    if(!conn) return;
+    int ret = -1, readErrno = 0;
+    ret = conn->Read(&readErrno);
+    if(ret <= 0 && readErrno != EAGAIN) {
+        CloseConnection_(conn);
+        return;
+    }
+    // @NOTE: simple echo server
+    epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLOUT); 
+}
+
+void Server::ManageWrite_(Connection* conn) {
+    if(!conn) return;
+    ExtendTimer_(conn);
+    threadpool_->AddTask(std::bind(&Server::OnWrite_, this, conn));
+}
+
+void Server::OnWrite_(Connection* conn) {
+    if(!conn) return;
+    int ret = -1, writeErrno = 0;
+    ret = conn->Write(&writeErrno);
+    if(ret < 0 && writeErrno == EAGAIN) {
+        epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLOUT);
+    }
+    else {
+        epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLIN);
+    }
+}
+
+void Server::SendMsgToClient_(int fd, const char* msg) {
+    assert(fd >= 0);
+    int ret = send(fd, msg, strlen(msg), 0);
+    if(ret < 0) {
+        close(fd);
+        LOG_ERROR("SendMsgToClient error");
+    }
+}
+
+void Server::CloseConnection_(Connection* conn) {
+    if(!conn) return;
+    int fd = conn->GetFd();
+    LOG_INFO("Close connection with fd: {}", fd);
+    epoller_->DeleteFd(fd);
+    close(fd);
+    numConnections_--; // decrease numConnection_
+}

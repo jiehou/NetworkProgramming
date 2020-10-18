@@ -14,18 +14,20 @@ using std::unordered_map;
 class Server {
 public:
     Server(size_t port, size_t timeoutMs, size_t numThreads);
-    virtual ~Server();
+    virtual ~Server() {};
     void Start(); // start the server
 private:
     bool InitSocket_(); 
     void ManageListen_();
     void AddConnection_(int fd, const sockaddr_in& addr);
-    void ManageRead_();
-    void ManageWrite_();
-    void OnListen_();
-    void OnWrite_();
+    void ManageRead_(Connection* conn);
+    void ManageWrite_(Connection* conn);
+    void OnListen_(Connection* conn);
+    void OnWrite_(Connection* conn);
+    void OnRead_(Connection* conn);
     void SendMsgToClient_(int fd, const char* msg);
     void CloseConnection_(Connection* conn);
+    void ExtendTimer_(Connection* conn);
 private:
     size_t port_; // port number
     size_t timeoutMs_; // expected time that an event to be processed

@@ -1,6 +1,7 @@
 #include "logger.h"
 #include "buffer.h"
 #include "threadpool.h"
+#include "server.h"
 #include <iostream>
 using std::cout;
 using std::endl;
@@ -36,6 +37,7 @@ void TestThreadPool() {
 }
 
 int main() {
-    TestThreadPool();
+    Server server(2014, 60000, 4);
+    server.Start();
     return 0;
 }
