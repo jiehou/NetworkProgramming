@@ -41,12 +41,14 @@ public:
     void Update(int fd, size_t newExpires);
     TimerNode Top();
     void Pop();
-    void Print();
+    //void Print();
+    int GetNextTick();
 private:
     void SiftUp_(size_t idx); // param: index of heap_
     bool SiftDown_(size_t idx); // param: index, maxIdx: the last compared index
     void SwapTimerNode_(size_t i, size_t j); // param: i and j are indexes
     void Delete_(size_t idx);
+    void Tick_();
 private:
     vector<TimerNode> heap_;
     unordered_map<int, size_t> lookup_; // <fd, index>

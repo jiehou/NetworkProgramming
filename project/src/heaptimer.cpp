@@ -61,6 +61,20 @@ void HeapTimer::Delete_(size_t idx) {
     }
 }
 
+/**
+ * trigger the events whose expires are smaller than Clock::now()
+ * find the next eveent whose expire is greater than Clock::now()
+*/
+void HeapTimer::Tick_() {
+    if(heap_.empty()) return;
+    while(!heap_.empty()) {
+        TimerNode node = heap_.front();
+        if(std::chrono::duration_cast<MilliSec>(node.expires - Clock::now()).count() > 0) break;
+        node.tcb();
+        Pop();   
+    }
+}
+
 void HeapTimer::Add(int fd, size_t expires, const TimeoutCallback& tcb) {
     assert(fd >= 0);
     size_t idx;
@@ -96,4 +110,14 @@ TimerNode HeapTimer::Top() {
 void HeapTimer::Pop() {
     if(heap_.empty()) return;
     Delete_(0);
+}
+
+int HeapTimer::GetNextTick() {
+    int ret = -1;
+    Tick_();
+    if(!heap_.empty()) {
+        ret = std::chrono::duration_cast<MilliSec>(heap_.front().expires - Clock::now()).count();
+        if(ret < 0) ret = 0;
+    }
+    return ret;
 }
