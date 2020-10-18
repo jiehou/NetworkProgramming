@@ -1,7 +1,8 @@
 #ifndef EPOLLER_H
 #define EPOLLER_H
 #include <sys/epoll.h> // epoll_ctl
-#include <errno.h> 
+#include <errno.h>
+#include <unistd.h>
 #include <cassert>
 #include <vector>
 using std::vector;

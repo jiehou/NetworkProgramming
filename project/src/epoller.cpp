@@ -17,7 +17,7 @@ bool Epoller::ModifyFd(int fd, uint32_t events) {
     struct epoll_event ev;
     ev.events = events;
     ev.data.fd = fd;
-    return 0 == epoll_ctl(epFd_, EPOLL_CTL_MOD, &ev);
+    return 0 == epoll_ctl(epFd_, EPOLL_CTL_MOD, fd, &ev);
 }
 
 bool Epoller::DeleteFd(int fd) {
@@ -32,10 +32,10 @@ int Epoller::Wait(int timeoutMs = -1) {
 
 int Epoller::GetEventFd(size_t idx) const {
     assert(idx >= 0 && idx < events_.size());
-    return events_[i].data.fd;
+    return events_[idx].data.fd;
 }
 
 uint32_t Epoller::GetEvents(size_t idx) const {
     assert(idx >= 0 && idx < events_.size());
-    return events_[i].events;
+    return events_[idx].events;
 }
