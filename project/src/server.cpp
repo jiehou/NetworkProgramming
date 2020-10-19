@@ -21,11 +21,9 @@ void Server::Start() {
     while(!isClose_) {
         if(timeoutMs_ > 0) 
             timeMs = timer_->GetNextTick();
-        cout << "[D] Start: timeMs: " << timeMs << endl;
-        int eventCount = epoller_->Wait(timeMs);
-        //cout << "[D] Start: eventCount: " << eventCount << endl;
+        //LOG_INFO("Start: timeMs: {}", timeMs);
+        uint32_t eventCount = epoller_->Wait(timeMs);
         for(int i = 0; i < eventCount; ++i) {
-            cout << "[D] Start i: " << i << ", eventCount: " << eventCount << endl;
             int fd = epoller_->GetEventFd(i);
             uint32_t tmpEvents = epoller_->GetEvents(i);
             if(fd == listenFd_) {
@@ -68,22 +66,22 @@ bool Server::InitSocket_() {
         LOG_ERROR("Create socket error");
         return false;
     }
-    //@NOTE: close elegantly through setting socket option
     int ret;
-    
+    /*
+    //@NOTE: close elegantly through setting socket option
     struct linger optLinger = {0};
-    //optLinger.l_linger = 1;
-    //optLinger.l_onoff = 1;
+    optLinger.l_linger = 1;
+    optLinger.l_onoff = 1;
     ret = setsockopt(listenFd_, SOL_SOCKET, SO_LINGER, &optLinger, sizeof(optLinger));
     if(ret < 0) {
         close(listenFd_);
         LOG_ERROR("Set socket options: LINGER error");
         return false;
     }
-    
+    */
     //@NOTE: reuse address 
     int optVal = 1;
-    ret = setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, &optVal, sizeof(int));
+    ret = setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, &optVal, sizeof(int)); //&optVal
     if(ret < 0) {
         close(listenFd_);
         LOG_ERROR("Set socket options: REUSEADDR error");
@@ -95,7 +93,7 @@ bool Server::InitSocket_() {
         LOG_ERROR("Bind error");
         return false;
     }
-    ret = listen(listenFd_, 1024);
+    ret = listen(listenFd_, 6);
     if(ret < 0) {
         close(listenFd_);
         LOG_ERROR("Listen error");
@@ -129,11 +127,11 @@ void Server::ManageListen_() {
 
 void Server::AddConnection_(int fd, const sockaddr_in& addr) {
     assert(fd >= 0);
-    connLookup_[fd].Init(fd, addr, connEvent_&EPOLLET);
+    connLookup_[fd].Init(fd, addr, connEvent_ & EPOLLET);
     numConnections_++; // increase numConnections_
     if(timeoutMs_ > 0)
         timer_->Add(fd, timeoutMs_, std::bind(&Server::CloseConnection_, this, &connLookup_[fd]));
-    epoller_->AddFd(fd, EPOLLIN || connEvent_);
+    epoller_->AddFd(fd, EPOLLIN | connEvent_);
     SetFdNonblock(fd);
     LOG_INFO("Connection with fd {} is established", fd);
 }
@@ -145,19 +143,20 @@ void Server::ExtendTimer_(Connection* conn) {
 }
 
 void Server::ManageRead_(Connection* conn) {
-    cout << "[D] ManageRead_ conn->fd: " << conn->GetFd() << endl;
+    //cout << "[D] ManageRead_ conn->fd: " << conn->GetFd() << endl;
+    LOG_INFO("ManageRead_ fd: {}", conn->GetFd());
     if(!conn) return;
     ExtendTimer_(conn);
     threadpool_->AddTask(std::bind(&Server::OnRead_, this, conn));
 }
 
 void Server::OnRead_(Connection* conn) {
-    cout << "[D] OnRead_ conn->fd: " << conn->GetFd() << endl;
+    LOG_INFO("OnRead_ fd: {}", conn->GetFd());
     if(!conn) return;
     int ret = -1, readErrno = 0;
     ret = conn->Read(&readErrno);
     if(ret < 0 && readErrno != EAGAIN) {
-        cout << "[D] close connection from OnWrite_\n";
+       LOG_ERROR("Read error");
         CloseConnection_(conn);
         return;
     }
@@ -166,19 +165,19 @@ void Server::OnRead_(Connection* conn) {
 }
 
 void Server::ManageWrite_(Connection* conn) {
-    cout << "[D] ManageWrite_ conn->fd: " << conn->GetFd() << endl;
+    LOG_INFO("ManageWrite_ fd: {}", conn->GetFd());
     if(!conn) return;
     ExtendTimer_(conn);
     threadpool_->AddTask(std::bind(&Server::OnWrite_, this, conn));
 }
 
 void Server::OnWrite_(Connection* conn) {
-    cout << "[D] OnWrite_ conn->fd: " << conn->GetFd() << endl;
+    LOG_INFO("OnWrite_ fd: {}", conn->GetFd());
     if(!conn) return;
     int ret = -1, writeErrno = 0;
     ret = conn->Write(&writeErrno);
     if(ret < 0 && writeErrno != EAGAIN) {
-        cout << "[D] close connection from OnWrite_\n";
+        LOG_ERROR("Write error");
         CloseConnection_(conn);
         return;
     }

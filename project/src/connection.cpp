@@ -22,7 +22,7 @@ ssize_t Connection::Read(int* retErrno) {
     //do 
     {
         len = buf_.ReadFd(fd_, retErrno);
-        cout << "[D] Connection Read len: " << len << ", fd_: " << fd_ << endl;
+        //cout << "[D] Connection Read len: " << len << ", fd_: " << fd_ << endl;
         //if(len <= 0) break;
     }
     //while(isEt_);

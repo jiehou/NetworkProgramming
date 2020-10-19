@@ -15,7 +15,7 @@ Epoller::~Epoller() { close(epFd_); }
 */
 bool Epoller::AddFd(int fd, uint32_t events) {
     if(fd < 0) return false;
-    epoll_event ev;
+    epoll_event ev = {0};
     ev.events = events;
     ev.data.fd = fd;
     return (0 == epoll_ctl(epFd_, EPOLL_CTL_ADD, fd, &ev)); //epoll_ctl: returns 0 on success, or -1 error
@@ -23,16 +23,16 @@ bool Epoller::AddFd(int fd, uint32_t events) {
 
 bool Epoller::ModifyFd(int fd, uint32_t events) {
     if(fd < 0) return false;
-    struct epoll_event ev;
+    epoll_event ev = {0};
     ev.events = events;
     ev.data.fd = fd;
-    return 0 == epoll_ctl(epFd_, EPOLL_CTL_MOD, fd, &ev);
+    return (0 == epoll_ctl(epFd_, EPOLL_CTL_MOD, fd, &ev));
 }
 
 bool Epoller::DeleteFd(int fd) {
     if(fd < 0) return false;
-    struct epoll_event ev = {0};
-    return 0 == epoll_ctl(epFd_, EPOLL_CTL_DEL, fd, &ev);
+    epoll_event ev = {0};
+    return (0 == epoll_ctl(epFd_, EPOLL_CTL_DEL, fd, &ev));
 }
 
 int Epoller::Wait(int timeoutMs) {
