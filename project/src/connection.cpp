@@ -1,8 +1,12 @@
 #include "connection.h"
+#include <iostream>
+using std::cout;
+using std::endl;
 
-void Connection::Init(int fd, const sockaddr_in& addr) {
+void Connection::Init(int fd, const sockaddr_in& addr, bool isEt) {
     fd_ = fd;
     addr_ = addr;
+    isEt_ = isEt;
 }
 
 int Connection::GetFd() const {
@@ -15,20 +19,22 @@ sockaddr_in Connection::GetAddr() const {
 
 ssize_t Connection::Read(int* retErrno) {
     ssize_t len = -1;
-    do {
+    //do 
+    {
         len = buf_.ReadFd(fd_, retErrno);
-        if(len <= 0) break;
+        cout << "[D] Connection Read len: " << len << ", fd_: " << fd_ << endl;
+        //if(len <= 0) break;
     }
-    while(isEt_);
+    //while(isEt_);
     return len;
 }
 
 ssize_t Connection::Write(int* retErrno) {
     ssize_t len = -1;
-    do {
+    //do {
         len = buf_.WriteFd(fd_, retErrno);
-        if(len <= 0) break;
-    }
-    while(isEt_);
+        //if(len <= 0) break;
+    //}
+    //while(isEt_);
     return len;
 }

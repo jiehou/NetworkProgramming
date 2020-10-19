@@ -31,11 +31,20 @@ bool Epoller::ModifyFd(int fd, uint32_t events) {
 
 bool Epoller::DeleteFd(int fd) {
     if(fd < 0) return false;
-    struct epoll_event ev;
+    struct epoll_event ev = {0};
     return 0 == epoll_ctl(epFd_, EPOLL_CTL_DEL, fd, &ev);
 }
 
 int Epoller::Wait(int timeoutMs) {
+    /**
+     * API: int epoll_wait(int epfd, struct epoll_event* evlist, int maxevents, int timeout)
+     * @return: the above api return the number of read file descriptors, 0 on timeout, or -1 on error
+     * @param: 
+     * timeout(-1): block until an event occurs for one of the file descriptors in the interest list for epfd or
+     * until a signal is caught
+     * timeout(0): perform a nonblocking check to see which events are currently available
+     * timeout(>0): block for up to timeout milliseconds  
+    */
     return epoll_wait(epFd_, &events_[0], events_.size(), timeoutMs);
 }
 

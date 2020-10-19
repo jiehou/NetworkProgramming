@@ -45,7 +45,7 @@ public:
     int GetNextTick();
 private:
     void SiftUp_(size_t idx); // param: index of heap_
-    bool SiftDown_(size_t idx); // param: index, maxIdx: the last compared index
+    bool SiftDown_(size_t idx, size_t maxIdx); // param: index, maxIdx: the last compared index
     void SwapTimerNode_(size_t i, size_t j); // param: i and j are indexes
     void Delete_(size_t idx);
     void Tick_();

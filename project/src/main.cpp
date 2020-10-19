@@ -36,8 +36,10 @@ void TestThreadPool() {
     std::this_thread::sleep_for(std::chrono::seconds(2));
 }
 
+const int kHalfMinute = 30000;
+
 int main() {
-    Server server(2014, 60000, 4);
+    Server server(2020, kHalfMinute*2, 4); // port, timeout, numThreads
     server.Start();
     return 0;
 }

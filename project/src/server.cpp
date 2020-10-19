@@ -14,22 +14,22 @@ Server::Server
     if(!InitSocket_()) isClose_ = true; // true: close, false: run server
 }
 
-//@TODO: Start
 void Server::Start() {
     if(isClose_) return;
     int timeMs = -1;
     LOG_INFO("Server starts running");
     while(!isClose_) {
-        if(timeoutMs_ > 0) timeMs = timer_->GetNextTick();
+        if(timeoutMs_ > 0) 
+            timeMs = timer_->GetNextTick();
+        cout << "[D] Start: timeMs: " << timeMs << endl;
         int eventCount = epoller_->Wait(timeMs);
-        cout << "[D] eventCount: " << eventCount << endl;
+        //cout << "[D] Start: eventCount: " << eventCount << endl;
         for(int i = 0; i < eventCount; ++i) {
+            cout << "[D] Start i: " << i << ", eventCount: " << eventCount << endl;
             int fd = epoller_->GetEventFd(i);
             uint32_t tmpEvents = epoller_->GetEvents(i);
             if(fd == listenFd_) {
-                cout << "[D] ManageListen_\n";
                 ManageListen_();
-                 cout << "[D] ManageListen_1\n";
             }
             else if(tmpEvents & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 assert(connLookup_.count(fd) > 0);
@@ -56,7 +56,7 @@ void Server::Start() {
 */
 bool Server::InitSocket_() {
     if(port_ > 65535 || port_ < 1024) {
-        LOG_ERROR("Port: {} error", port_);
+        LOG_ERROR("Port should be in an range(1024, 65535): ", port_);
         return false;
     }
     struct sockaddr_in addr;
@@ -70,15 +70,17 @@ bool Server::InitSocket_() {
     }
     //@NOTE: close elegantly through setting socket option
     int ret;
-    struct linger optLinger;
-    optLinger.l_linger = 1;
-    optLinger.l_onoff = 1;
+    
+    struct linger optLinger = {0};
+    //optLinger.l_linger = 1;
+    //optLinger.l_onoff = 1;
     ret = setsockopt(listenFd_, SOL_SOCKET, SO_LINGER, &optLinger, sizeof(optLinger));
     if(ret < 0) {
         close(listenFd_);
         LOG_ERROR("Set socket options: LINGER error");
         return false;
     }
+    
     //@NOTE: reuse address 
     int optVal = 1;
     ret = setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, &optVal, sizeof(int));
@@ -127,13 +129,13 @@ void Server::ManageListen_() {
 
 void Server::AddConnection_(int fd, const sockaddr_in& addr) {
     assert(fd >= 0);
-    connLookup_[fd].Init(fd, addr);
+    connLookup_[fd].Init(fd, addr, connEvent_&EPOLLET);
     numConnections_++; // increase numConnections_
     if(timeoutMs_ > 0)
         timer_->Add(fd, timeoutMs_, std::bind(&Server::CloseConnection_, this, &connLookup_[fd]));
     epoller_->AddFd(fd, EPOLLIN || connEvent_);
     SetFdNonblock(fd);
-    LOG_INFO("Connection with fd: {} is established", fd);
+    LOG_INFO("Connection with fd {} is established", fd);
 }
 
 void Server::ExtendTimer_(Connection* conn) {
@@ -143,39 +145,44 @@ void Server::ExtendTimer_(Connection* conn) {
 }
 
 void Server::ManageRead_(Connection* conn) {
+    cout << "[D] ManageRead_ conn->fd: " << conn->GetFd() << endl;
     if(!conn) return;
     ExtendTimer_(conn);
     threadpool_->AddTask(std::bind(&Server::OnRead_, this, conn));
 }
 
 void Server::OnRead_(Connection* conn) {
+    cout << "[D] OnRead_ conn->fd: " << conn->GetFd() << endl;
     if(!conn) return;
     int ret = -1, readErrno = 0;
     ret = conn->Read(&readErrno);
-    if(ret <= 0 && readErrno != EAGAIN) {
+    if(ret < 0 && readErrno != EAGAIN) {
+        cout << "[D] close connection from OnWrite_\n";
         CloseConnection_(conn);
         return;
     }
-    // @NOTE: simple echo server
-    epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLOUT); 
+    //@NOTE: simple echo server
+    epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLOUT); // change to listen write event after reading
 }
 
 void Server::ManageWrite_(Connection* conn) {
+    cout << "[D] ManageWrite_ conn->fd: " << conn->GetFd() << endl;
     if(!conn) return;
     ExtendTimer_(conn);
     threadpool_->AddTask(std::bind(&Server::OnWrite_, this, conn));
 }
 
 void Server::OnWrite_(Connection* conn) {
+    cout << "[D] OnWrite_ conn->fd: " << conn->GetFd() << endl;
     if(!conn) return;
     int ret = -1, writeErrno = 0;
     ret = conn->Write(&writeErrno);
-    if(ret < 0 && writeErrno == EAGAIN) {
-        epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLOUT);
+    if(ret < 0 && writeErrno != EAGAIN) {
+        cout << "[D] close connection from OnWrite_\n";
+        CloseConnection_(conn);
+        return;
     }
-    else {
-        epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLIN);
-    }
+    epoller_->ModifyFd(conn->GetFd(), connEvent_ | EPOLLIN); // change to listen read event after writing 
 }
 
 void Server::SendMsgToClient_(int fd, const char* msg) {
@@ -190,8 +197,10 @@ void Server::SendMsgToClient_(int fd, const char* msg) {
 void Server::CloseConnection_(Connection* conn) {
     if(!conn) return;
     int fd = conn->GetFd();
-    LOG_INFO("Close connection with fd: {}", fd);
-    epoller_->DeleteFd(fd);
-    close(fd);
-    numConnections_--; // decrease numConnection_
+    if(epoller_->DeleteFd(fd)) {
+        close(fd);
+        connLookup_.erase(fd);
+        numConnections_--; // decrease numConnection_
+        LOG_INFO("Close connection whose fd: {}, num of connections: {}", fd, connLookup_.size());
+    }        
 }

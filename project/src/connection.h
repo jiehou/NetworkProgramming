@@ -7,7 +7,7 @@
 class Connection {
 public:
     Connection() = default;
-    void Init(int fd, const sockaddr_in& addr);
+    void Init(int fd, const sockaddr_in& addr, bool isEt);
     int GetFd() const;
     sockaddr_in GetAddr() const;
     ssize_t Read(int* retErrno);
